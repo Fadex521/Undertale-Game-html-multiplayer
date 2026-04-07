@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corazón Undertale</title>
+    <style>
+        body {
+            background: #111;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+               #life-bar-container {
+            width: 400px;
+            margin: 0 auto;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 30px;
+            text-align: center;
+            z-index: 10;
+            user-select: none;
+        }
+        #life-bar-bg {
+            width: 200px;
+            height: 15px;
+            background: #bc0000;
+            border: 3px solid gold;
+            border-radius: 4px;
+            margin: 0 auto;
+            position: relative;
+            box-shadow: 0 0 12px rgba(151, 146, 8, 0.667);
+        }
+        #life-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ffe066 60%, #ffd700 100%);
+            border-radius: 0px;
+            transition: width 0.3s cubic-bezier(.4,1.6,.6,1);
+            box-shadow: 0 0 8px #ffd700cc;
+        }
+        #life-label {
+            color: #fff;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 22px;
+            margin-top: 6px;
+            text-shadow: 2px 2px 6px #000, 0 0 8px #ffd700cc;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-area">
+        <canvas id="heart-canvas" width="20" height="18" style="position:absolute;"></canvas>
+        <canvas id="projectile-canvas" style="position:absolute; left:0; top:0; pointer-events:none;"></canvas>
+    </div>
+    <div id="life-bar-container">
+        <div id="life-bar-bg">
+            <div id="life-bar"></div>
+        </div>
+        <div id="life-label">20 / 20</div>
+    </div>
+    <div style="position:fixed;top:10px;left:12px;color:#222;font-family:Arial;font-size:18px;font-weight:bold;z-index:1000;text-shadow:2px 2px 6px #fff,0 0 8px #222;pointer-events:none;">Proyect DeltaVS v1.5</div>
+    <audio id="hit-sound" src="./sounds/damage.mp3" preload="auto" style="display:none"></audio>
+    <audio id="shield-sound" src="./sounds/undertale-ding.mp3" preload="auto" style="display:none"></audio>
+    <audio id="mode-sound" src="./sounds/cambioModo.mp3" preload="auto" style="display:none"></audio>
+    <audio id="box-shrink-sound" src="./sounds/contraerbox.mp3" preload="auto" style="display:none"></audio>
+    <audio id="sprite-sound" src="./sounds/blaster inicial.mp3" preload="auto" style="display:none"></audio>
+    <audio id="sprite-anim-sound" src="./sounds/blaster final.mp3" preload="auto" style="display:none"></audio>
+    <script src="undertale.js"></script>
+    <script src="sprite_anim.js"></script>
+</body>
+</html>

@@ -1,0 +1,532 @@
+// js/mechanics.js
+// --- Lógica de juego: vida, física, proyectiles, cajas, plataformas, bucle principal ---
+
+// ─── Barra de vida ───────────────────────────────────────────────────────────
+function updateLifeBar() {
+    lifeBar.style.width = (life / maxLife * 100) + '%';
+    lifeLabel.textContent = life + ' / ' + maxLife;
+}
+
+// ─── Escudo: dirección objetivo ──────────────────────────────────────────────
+function setShieldTarget(dir) {
+    if (dir === 'up') {
+        shieldTargetAngle = -Math.PI / 2;
+    } else if (dir === 'down') {
+        shieldTargetAngle = Math.PI / 2;
+    } else if (dir === 'left') {
+        shieldTargetAngle = Math.PI;
+    } else if (dir === 'right') {
+        shieldTargetAngle = 0;
+    }
+    shieldTargetOffsetX = shieldSpriteOffsetX;
+    shieldTargetOffsetY = shieldSpriteOffsetY;
+}
+
+// ─── Canvas de proyectiles ───────────────────────────────────────────────────
+function resizeProjectileCanvas() {
+    projectileCanvas.width  = window.innerWidth;
+    projectileCanvas.height = window.innerHeight;
+}
+
+// ─── Barra de vida: posición ─────────────────────────────────────────────────
+function setLifeBarPosition(escudo) {
+    const lifeBarContainer = document.getElementById('life-bar-container');
+    if (escudo) {
+        lifeBarContainer.style.left      = 'auto';
+        lifeBarContainer.style.right     = '40px';
+        lifeBarContainer.style.transform = 'none';
+    } else {
+        lifeBarContainer.style.left      = '50%';
+        lifeBarContainer.style.right     = 'auto';
+        lifeBarContainer.style.transform = 'translateX(-50%)';
+    }
+}
+
+// ─── Corazón: actualizar posición del canvas ─────────────────────────────────
+function updateHeart() {
+    canvas.style.left = (x - heartWidth / 2)  + 'px';
+    canvas.style.top  = (y - heartHeight / 2) + 'px';
+}
+
+// ─── Colisión punto–corazón ───────────────────────────────────────────────────
+function checkCollision(px, py) {
+    const r        = 6;
+    const left     = x - heartWidth  / 2;
+    const right    = x + heartWidth  / 2;
+    const top      = y - heartHeight / 2;
+    const bottom   = y + heartHeight / 2;
+    const closestX = Math.max(left, Math.min(px, right));
+    const closestY = Math.max(top,  Math.min(py, bottom));
+    const dx = px - closestX;
+    const dy = py - closestY;
+    return (dx * dx + dy * dy) < r * r;   // FIX: era dxdx / dydy
+}
+
+// ─── Cuadro verde / morado ───────────────────────────────────────────────────
+function startGreenBoxAnimation(size = greenBoxFinalSize, mode = "green") {
+    greenBoxActive   = true;
+    greenBoxAnimating = true;
+    greenBoxAnimSpeed = greenBoxCompressSpeed;
+    greenBox.x  = 0;
+    greenBox.y  = 0;
+    greenBox.w  = window.innerWidth;
+    greenBox.h  = window.innerHeight;
+    greenBox.tw = (window.innerWidth  - size) / 2;
+    greenBox.th = (window.innerHeight - size) / 2;
+    greenBox.tx = size;
+    greenBox.ty = size;
+    boxMode = mode;
+    if (boxShrinkSound) { boxShrinkSound.currentTime = 0; boxShrinkSound.play(); }
+}
+
+function closeGreenBoxAnimation() {
+    greenBoxAnimating = true;
+    greenBoxAnimSpeed = greenBoxDecompressSpeed;
+    greenBox.tw = 0;
+    greenBox.th = 0;
+    greenBox.tx = window.innerWidth;
+    greenBox.ty = window.innerHeight;
+    boxMode = "green";
+}
+
+// ─── Cuadro blanco ────────────────────────────────────────────────────────────
+function startWhiteBoxAnimation(size = whiteBoxFinalSize) {
+    whiteBoxActive   = true;
+    whiteBoxAnimating = true;
+    greenBoxActive   = true;
+    greenBoxAnimating = true;
+    greenBoxAnimSpeed = whiteBoxCompressSpeed;
+    greenBox.x  = 0;
+    greenBox.y  = 0;
+    greenBox.w  = window.innerWidth;
+    greenBox.h  = window.innerHeight;
+    greenBox.tw = (window.innerWidth  - size) / 2;
+    greenBox.th = (window.innerHeight - size) / 2;
+    greenBox.tx = size;
+    greenBox.ty = size;
+    boxMode = "white";
+    if (boxShrinkSound) { boxShrinkSound.currentTime = 0; boxShrinkSound.play(); }
+}
+
+function closeWhiteBoxAnimation() {
+    whiteBoxAnimating = true;
+    greenBoxAnimating = true;
+    greenBoxAnimSpeed = whiteBoxDecompressSpeed;
+    greenBox.tw = 0;
+    greenBox.th = 0;
+    greenBox.tx = window.innerWidth;
+    greenBox.ty = window.innerHeight;
+    whiteBoxActive = false;
+}
+
+function updateGreenBox() {
+    if (!greenBoxActive) return;
+    if (greenBoxAnimating) {
+        greenBox.x += (greenBox.tw - greenBox.x) * greenBoxAnimSpeed;
+        greenBox.y += (greenBox.th - greenBox.y) * greenBoxAnimSpeed;
+        greenBox.w += (greenBox.tx - greenBox.w) * greenBoxAnimSpeed;
+        greenBox.h += (greenBox.ty - greenBox.h) * greenBoxAnimSpeed;
+        if (
+            Math.abs(greenBox.x - greenBox.tw) < 1 &&
+            Math.abs(greenBox.y - greenBox.th) < 1 &&
+            Math.abs(greenBox.w - greenBox.tx) < 1 &&
+            Math.abs(greenBox.h - greenBox.ty) < 1
+        ) {
+            greenBox.x = greenBox.tw;
+            greenBox.y = greenBox.th;
+            greenBox.w = greenBox.tx;
+            greenBox.h = greenBox.ty;
+            if (greenBox.tw === 0 && greenBox.th === 0) {
+                greenBoxActive = false;
+                whiteBoxActive = false;
+            }
+            greenBoxAnimating  = false;
+            whiteBoxAnimating  = false;
+        }
+    }
+}
+
+function drawGreenBox() {
+    if (!greenBoxActive) return;
+    pctx.save();
+    if      (boxMode === "green")  { pctx.strokeStyle = '#00ff00'; pctx.shadowColor = '#00ff00'; }
+    else if (boxMode === "white")  { pctx.strokeStyle = '#ffffff'; pctx.shadowColor = '#ffffff'; }
+    else                           { pctx.strokeStyle = '#a020f0'; pctx.shadowColor = '#a020f0'; }
+    pctx.lineWidth  = 1;
+    pctx.shadowBlur = 16;
+    pctx.strokeRect(greenBox.x, greenBox.y, greenBox.w, greenBox.h);
+    pctx.shadowBlur = 0;
+    pctx.restore();
+}
+
+function clampToGreenBox() {
+    if (!greenBoxActive) return;
+    const minX = Math.ceil (greenBox.x + heartWidth  / 2);
+    const maxX = Math.floor(greenBox.x + greenBox.w - heartWidth  / 2);
+    const minY = Math.ceil (greenBox.y + heartHeight / 2);
+    const maxY = Math.floor(greenBox.y + greenBox.h - heartHeight / 2);
+    x = Math.max(minX, Math.min(x, maxX));
+    y = Math.max(minY, Math.min(y, maxY));
+    updateHeart();
+}
+
+// ─── Plataformas ─────────────────────────────────────────────────────────────
+function drawPlatforms() {
+    pctx.save();
+    pctx.fillStyle = '#888';
+    platforms.forEach(pl => pctx.fillRect(pl.x, pl.y, pl.w, pl.h));
+    pctx.restore();
+}
+
+function isOnAnyPlatform() {
+    if (y >= window.innerHeight - heartHeight / 2 - 1) return true;
+    if (greenBoxActive && Math.abs(y - (greenBox.y + greenBox.h - heartHeight / 2)) < 2) return true;
+    for (let pl of platforms) {
+        if (
+            x + heartWidth  / 2 > pl.x &&
+            x - heartWidth  / 2 < pl.x + pl.w &&
+            Math.abs(y + heartHeight / 2 - pl.y) < 2
+        ) return true;
+    }
+    return false;
+}
+
+// ─── Proyectiles ─────────────────────────────────────────────────────────────
+function updateProjectiles() {
+    pctx.clearRect(0, 0, projectileCanvas.width, projectileCanvas.height);
+
+    // --- Proyectiles morados ---
+    let newPurple = [];
+    for (let pp of purpleProjectiles) {
+        if (pp.active) {
+            if (pp.follow && pp.timer > 0) {
+                let dx   = x - pp.x;
+                let dy   = y - pp.y;
+                let dist = Math.sqrt(dx * dx + dy * dy) || 1;   // FIX: era dxdx / dydy
+                let spd  = 4.6;
+                pp.vx = dx / dist * spd;
+                pp.vy = dy / dist * spd;
+                pp.x += pp.vx;
+                pp.y += pp.vy;
+                pp.timer--;
+                if (pp.timer <= 0) pp.follow = false;
+            } else {
+                pp.x += pp.vx;
+                pp.y += pp.vy;
+            }
+            if (!broken && checkCollision(pp.x, pp.y)) {
+                if (hitSound) { hitSound.currentTime = 0; hitSound.play(); }
+                if (life > 0) {
+                    life--;
+                    updateLifeBar();
+                    if (life === 0) {
+                        broken = true;
+                        heartDeathAnimating = true;
+                        heartDeathFrame     = 0;
+                        heartLastFrameTime  = performance.now();
+                        setTimeout(resetGame, 4000);
+                    }
+                }
+                continue;
+            }
+            if (pp.x < -10 || pp.x > window.innerWidth + 10 ||
+                pp.y < -10 || pp.y > window.innerHeight + 10) continue;
+        }
+        // Dibujar proyectil morado
+        pctx.beginPath();
+        pctx.arc(pp.x, pp.y, 8, 0, 2 * Math.PI);
+        pctx.fillStyle   = '#a020f0';
+        pctx.shadowColor = '#a020f0';
+        pctx.shadowBlur  = 12;
+        pctx.globalAlpha = 0.95;
+        pctx.fill();
+        pctx.globalAlpha = 1;
+        pctx.shadowBlur  = 0;
+        newPurple.push(pp);
+    }
+    purpleProjectiles = newPurple;
+
+    // --- Proyectiles normales ---
+    let newProjectiles = [];
+    for (let i = 0; i < projectiles.length; i++) {
+        let p = projectiles[i];
+        if (p.active && p.attackType) {
+            let dx   = x - p.x;
+            let dy   = y - p.y;
+            let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            if (p.initDist === undefined) p.initDist = dist;
+            let spd = p.initDist / 60;
+            p.vx = dx / dist * spd;
+            p.vy = dy / dist * spd;
+            p.x += p.vx;
+            p.y += p.vy;
+        } else if (p.active) {
+            p.x += p.vx;
+            p.y += p.vy;
+        }
+
+        // Colisión con el escudo
+        if (lockedCenter && shieldActive && shieldDir && p.attackType) {
+            const offset = shieldRadius + 18;
+            let shieldAngle = 0;
+            if (shieldDir === 'up')    shieldAngle = -Math.PI / 2;
+            if (shieldDir === 'down')  shieldAngle =  Math.PI / 2;
+            if (shieldDir === 'left')  shieldAngle =  Math.PI;
+            if (shieldDir === 'right') shieldAngle =  0;
+            const fx = x + Math.cos(shieldAngle) * offset;
+            const fy = y + Math.sin(shieldAngle) * offset;
+            if (Math.sqrt((p.x - fx) ** 2 + (p.y - fy) ** 2) < 24) {
+                if (shieldSound) { shieldSound.currentTime = 0; shieldSound.play(); }
+                continue;
+            }
+        }
+
+        // Colisión con el corazón
+        if (!p.hit && !broken && checkCollision(p.x, p.y)) {
+            p.hit = true;
+            if (hitSound) { hitSound.currentTime = 0; hitSound.play(); }
+            if (p.attackType) {
+                life = life > 1 ? Math.max(0, life - 2) : 0;
+            } else if (life > 0) {
+                life--;
+            }
+            updateLifeBar();
+            if (life === 0) {
+                broken             = true;
+                heartDeathAnimating = true;
+                heartDeathFrame    = 0;
+                heartLastFrameTime = performance.now();
+                shieldActive       = false;
+                lockedCenter       = false;
+                projectiles        = [];
+                setTimeout(resetGame, 4000);
+                if (greenBoxActive) closeGreenBoxAnimation();
+            }
+            continue;
+        }
+
+        // Dibujar proyectil
+        if (p.attackType) {
+            pctx.save();
+            pctx.translate(p.x, p.y);
+            pctx.rotate(Math.atan2(p.vy, p.vx));
+            pctx.beginPath();
+            pctx.moveTo(-12, -5);
+            pctx.lineTo(10, 0);
+            pctx.lineTo(-12, 5);
+            pctx.lineTo(-7, 0);
+            pctx.closePath();
+            pctx.fillStyle   = '#ffffff';
+            pctx.shadowColor = '#00eaff';
+            pctx.shadowBlur  = 8;
+            pctx.globalAlpha = 0.95;
+            pctx.fill();
+            pctx.globalAlpha = 1;
+            pctx.shadowBlur  = 0;
+            pctx.restore();
+        } else {
+            pctx.beginPath();
+            pctx.arc(p.x, p.y, 6, 0, 2 * Math.PI);
+            pctx.fillStyle = '#cccccc';
+            pctx.fill();
+        }
+
+        if (
+            !(p.x < -10 || p.x > window.innerWidth  + 10 ||
+              p.y < -10 || p.y > window.innerHeight + 10) && !p.hit
+        ) newProjectiles.push(p);
+    }
+    projectiles = newProjectiles;
+    drawShield();
+}
+
+// ─── Reset del juego ─────────────────────────────────────────────────────────
+function resetGame() {
+    life                      = maxLife;
+    broken                    = false;
+    heartDeathFrame           = 0;
+    heartDeathAnimating       = false;
+    heartVisible              = true;
+    deathParticles            = [];
+    deathAnimationFinishedTime = 0;
+    projectiles               = [];
+    purpleProjectiles         = [];
+    updateLifeBar();
+    x            = window.innerWidth  / 2;
+    y            = window.innerHeight / 2;
+    heartColor   = '#ff0000';
+    shieldActive = false;
+    lockedCenter = false;
+    setLifeBarPosition(false);
+}
+
+// ─── Partículas de muerte ─────────────────────────────────────────────────────
+function spawnDeathParticles() {
+    deathParticles = [];
+    let color = '#ff0000';
+    if (heartColor === '#2018f9ff') color = '#2018f9';
+    if (heartColor === '#027e02ff') color = '#00ff00';
+    for (let i = 0; i < particleCount; i++) {
+        deathParticles.push({
+            x:       x,
+            y:       y,
+            vx:      (Math.random() - 0.5) * 6,
+            vy:      Math.random() * 2,
+            gravity: 0.15 + Math.random() * 0.15,
+            size:    2 + Math.random() * 3,
+            color:   color,
+            alpha:   1
+        });
+    }
+}
+
+function updateDeathParticles() {
+    let alive = [];
+    for (let p of deathParticles) {
+        p.vy += p.gravity;
+        p.x  += p.vx;
+        p.y  += p.vy;
+        p.alpha -= 0.01;
+        if (p.alpha > 0) alive.push(p);
+    }
+    deathParticles = alive;
+}
+
+function drawDeathParticles() {
+    for (let p of deathParticles) {
+        pctx.save();
+        pctx.globalAlpha = p.alpha;
+        pctx.fillStyle   = p.color;
+        pctx.fillRect(p.x, p.y, p.size, p.size);
+        pctx.restore();
+    }
+}
+
+// ─── Bucle principal ──────────────────────────────────────────────────────────
+function move() {
+
+    // Movimiento al centro (modo escudo)
+    if (movingToCenter) {
+        x += (centerTargetX - x) * centerLerpSpeed;
+        y += (centerTargetY - y) * centerLerpSpeed;
+        if (Math.abs(x - centerTargetX) < 1 && Math.abs(y - centerTargetY) < 1) {
+            x = centerTargetX;
+            y = centerTargetY;
+            movingToCenter = false;
+            lockedCenter   = true;
+            heartColor     = '#027e02ff';
+            keys['ArrowLeft'] = keys['ArrowRight'] = keys['ArrowUp'] = keys['ArrowDown'] = false;
+            shieldActive = true;
+            shieldDir    = null;
+            setShieldTarget('up');
+        }
+    } else if (!broken && !lockedCenter) {
+        if (heartColor === '#2018f9ff') {
+            // Modo azul: física de gravedad
+            if (keys.ArrowLeft)  x = Math.max(x - speed, heartWidth  / 2);
+            if (keys.ArrowRight) x = Math.min(x + speed, window.innerWidth  - heartWidth  / 2);
+            blueYVel += blueGravityInverted ? -blueGravity : blueGravity;
+            let nextY  = y + blueYVel;
+            let landed = false;
+            for (let pl of platforms) {
+                if (
+                    y + heartHeight / 2 <= pl.y &&
+                    nextY + heartHeight / 2 >= pl.y &&
+                    x + heartWidth  / 2 > pl.x &&
+                    x - heartWidth  / 2 < pl.x + pl.w
+                ) {
+                    nextY  = pl.y - heartHeight / 2;
+                    blueYVel = 0;
+                    blueOnGround = true;
+                    landed = true;
+                    break;
+                }
+            }
+            // Colisión con la barra de vida como plataforma
+            const lbr    = lifeBar.getBoundingClientRect();
+            if (
+                y + heartHeight / 2 <= lbr.top &&
+                nextY + heartHeight / 2 >= lbr.top &&
+                x + heartWidth  / 2 > lbr.left &&
+                x - heartWidth  / 2 < lbr.right
+            ) {
+                nextY    = lbr.top - heartHeight / 2;
+                blueYVel = 0;
+                blueOnGround = true;
+                landed   = true;
+            }
+            if (blueGravityInverted && nextY <= heartHeight / 2) {
+                nextY = heartHeight / 2;
+                blueYVel = 0;
+                blueOnGround = true;
+                landed = true;
+            }
+            if (!blueGravityInverted && nextY >= window.innerHeight - heartHeight / 2) {
+                nextY = window.innerHeight - heartHeight / 2;
+                blueYVel = 0;
+                blueOnGround = true;
+                landed = true;
+            }
+            if (!landed) blueOnGround = false;
+            y = nextY;
+        } else {
+            // Modo normal
+            if (keys.ArrowLeft)  x = Math.max(x - speed, heartWidth  / 2);
+            if (keys.ArrowRight) x = Math.min(x + speed, window.innerWidth  - heartWidth  / 2);
+            if (keys.ArrowUp)    y = Math.max(y - speed, heartHeight / 2);
+            if (keys.ArrowDown)  y = Math.min(y + speed, window.innerHeight - heartHeight / 2);
+        }
+    }
+
+    if (broken) {
+        shieldActive = false;
+        lockedCenter = false;
+        projectiles  = [];
+    }
+
+    // ── Animación de muerte (spritesheet) ────────────────────────────────────
+    if (heartDeathAnimating) {
+        const now = performance.now();
+        if (now - heartLastFrameTime >= heartFrameDuration) {
+            heartLastFrameTime = now;
+            if (heartDeathFrame < HEART_FRAME_COUNT - 1) {
+                heartDeathFrame++;
+            } else {
+                heartDeathAnimating       = false;
+                deathAnimationFinishedTime = performance.now();
+            }
+        }
+    }
+
+    // ── Spawn de partículas cuando termina la animación de muerte ─────────────
+    if (
+        broken &&
+        !heartDeathAnimating &&
+        heartVisible &&
+        performance.now() - deathAnimationFinishedTime > 200
+    ) {
+        heartVisible = false;
+        spawnDeathParticles();
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    updateHeart();
+
+    if (heartVisible) {
+        drawHeart(ctx);
+    } else {
+        ctx.clearRect(0, 0, heartWidth, heartHeight);
+    }
+
+    updateProjectiles();
+    updateDeathParticles();
+    drawDeathParticles();
+    updateGreenBox();
+    drawPlatforms();
+    if (greenBoxActive) clampToGreenBox();
+    drawGreenBox();
+
+    if (typeof testSpriteDraw === 'function') testSpriteDraw(pctx);
+
+    requestAnimationFrame(move);  // SIEMPRE al final, nunca antes de un return
+}

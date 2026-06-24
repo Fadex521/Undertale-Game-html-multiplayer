@@ -26,6 +26,7 @@ function setShieldTarget(dir) {
 function resizeProjectileCanvas() {
     projectileCanvas.width  = window.innerWidth;
     projectileCanvas.height = window.innerHeight;
+    pctx.imageSmoothingEnabled = false;
 }
 
 // ─── Barra de vida: posición ─────────────────────────────────────────────────
@@ -554,6 +555,8 @@ function move() {
 
     // ── Render ────────────────────────────────────────────────────────────────
     updateHeart();
+    ctx.imageSmoothingEnabled = false;  // Para el lienzo del corazón
+    pctx.imageSmoothingEnabled = false; // Para el lienzo de los Blasters/Proyectiles
 
     if (heartVisible) {
         drawHeart(ctx);

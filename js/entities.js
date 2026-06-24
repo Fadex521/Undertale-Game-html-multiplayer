@@ -10,8 +10,12 @@ function drawHeart(ctx) {
     if (heartColor === '#2018f9ff') sheet = blueAnimation;
     if (heartColor === '#027e02ff') sheet = greenAnimation;
 
-    // Frame 0 en reposo; heartDeathFrame durante la animación de muerte
-    const frame = heartDeathAnimating ? heartDeathFrame : 0;
+    // ─── CORRECCIÓN AQUÍ ───────────────────────────────────────────────────
+    // Usamos 'broken' en lugar de 'heartDeathAnimating'. Así, mientras el corazón 
+    // esté roto, retendrá el valor de 'heartDeathFrame' (que se detiene en el último frame)
+    // incluso durante la espera de 200ms antes de que aparezcan las partículas.
+    const frame = broken ? heartDeathFrame : 0;
+    // ───────────────────────────────────────────────────────────────────────
 
     // Rotar si está en modo azul con gravedad invertida
     if (heartColor === '#2018f9ff' && blueGravityInverted) {

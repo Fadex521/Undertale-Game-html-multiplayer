@@ -45,7 +45,7 @@ let deathParticles = [];
 let deathAnimationFinishedTime = 0;
 
 
-const particleCount = 40;
+const particleCount = 12;
 
 
 const heartAnimation = new Image();

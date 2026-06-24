@@ -366,16 +366,28 @@ function spawnDeathParticles() {
     let color = '#ff0000';
     if (heartColor === '#2018f9ff') color = '#2018f9';
     if (heartColor === '#027e02ff') color = '#00ff00';
+    
     for (let i = 0; i < particleCount; i++) {
+        // 1. Elegimos un ángulo completamente aleatorio en radianes (0 a 360 grados)
+        const explosionAngle = Math.random() * Math.PI * 2;
+        
+        // 2. Definimos la fuerza o velocidad inicial de la explosión
+        // Puedes subir el 6 para que salgan más rápido o el 2 para aumentar la velocidad mínima
+        const force = 2 + Math.random() * 6; 
+
         deathParticles.push({
             x:       x,
             y:       y,
-            vx:      (Math.random() - 0.5) * 6,
-            vy:      Math.random() * 2,
-            gravity: 0.15 + Math.random() * 0.15,
-            size:    2 + Math.random() * 3,
+            // 3. Usamos trigonometría para descomponer la fuerza en los ejes X e Y
+            vx:      Math.cos(explosionAngle) * force,
+            vy:      Math.sin(explosionAngle) * force,
+            
+            gravity: 0.15 + Math.random() * 0.15, // La gravedad se mantiene igual
+            size:    3 + Math.random() * 3, 
             color:   color,
-            alpha:   1
+            alpha:   1,
+            angle:   Math.random() * Math.PI * 2,           
+            rotSpeed: (Math.random() - 0.5) * 0.15          
         });
     }
 }
@@ -386,6 +398,10 @@ function updateDeathParticles() {
         p.vy += p.gravity;
         p.x  += p.vx;
         p.y  += p.vy;
+        
+        // Actualizar el ángulo de rotación según su velocidad angular
+        p.angle += p.rotSpeed; 
+        
         p.alpha -= 0.01;
         if (p.alpha > 0) alive.push(p);
     }
@@ -397,7 +413,28 @@ function drawDeathParticles() {
         pctx.save();
         pctx.globalAlpha = p.alpha;
         pctx.fillStyle   = p.color;
-        pctx.fillRect(p.x, p.y, p.size, p.size);
+
+        // 1. Trasladar el origen del contexto al centro de la partícula
+        pctx.translate(p.x, p.y);
+        
+        // 2. Rotar el contexto el ángulo actual de la partícula
+        pctx.rotate(p.angle);
+
+        // 3. Dibujar el rombo (Rhombus) centrado en (0,0)
+        // Puedes ajustar la esbeltez modificando los multiplicadores (ej. p.size * 0.6)
+        const halfWidth = p.size * 0.6; 
+        const halfHeight = p.size;
+
+        pctx.beginPath();
+        pctx.moveTo(0, -halfHeight);          // Vértice Superior
+        pctx.lineTo(halfWidth, 0);            // Vértice Derecho
+        pctx.lineTo(0, halfHeight);           // Vértice Inferior
+        pctx.lineTo(-halfWidth, 0);           // Vértice Izquierdo
+        pctx.closePath();
+        
+        pctx.fill();
+        
+        // Restaurar el estado del lienzo para la siguiente partícula
         pctx.restore();
     }
 }

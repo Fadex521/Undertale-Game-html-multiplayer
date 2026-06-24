@@ -220,9 +220,11 @@ function updateProjectiles() {
                     life--;
                     updateLifeBar();
                     if (life === 0) {
+                        
                         broken = true;
                         heartDeathAnimating = true;
                         heartDeathFrame     = 0;
+
                         heartLastFrameTime  = performance.now();
                         setTimeout(resetGame, 4000);
                     }
@@ -292,6 +294,10 @@ function updateProjectiles() {
             }
             updateLifeBar();
             if (life === 0) {
+                if (deathSound) {
+        deathSound.currentTime = 0; // Reinicia el audio por si acaso
+        deathSound.play().catch(e => console.log("Error al reproducir audio:", e));
+    }
                 broken             = true;
                 heartDeathAnimating = true;
                 heartDeathFrame    = 0;
@@ -540,7 +546,7 @@ function move() {
         broken &&
         !heartDeathAnimating &&
         heartVisible &&
-        performance.now() - deathAnimationFinishedTime > 200
+        performance.now() - deathAnimationFinishedTime > 500
     ) {
         heartVisible = false;
         spawnDeathParticles();

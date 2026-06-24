@@ -32,7 +32,7 @@ const HEART_FRAME_COUNT = 4;
 let heartDeathFrame = 0;
 let heartDeathAnimating = false;
 let heartLastFrameTime = 0;
-const heartFrameDuration = 120;
+const heartFrameDuration = 10;
 
 
 //particulas
@@ -130,8 +130,10 @@ const hitSound = document.getElementById('hit-sound');
 const shieldSound = document.getElementById('shield-sound');
 const modeSound = document.getElementById('mode-sound');
 const boxShrinkSound = document.getElementById('box-shrink-sound');
-
-
+const deathSound = document.getElementById('death-sound');
+if (hitSound) {
+    hitSound.volume = 0.3; 
+}
 // --- Zona verde/morada/blanca animada ---
 let greenBoxActive = false;
 let greenBoxAnimating = false;

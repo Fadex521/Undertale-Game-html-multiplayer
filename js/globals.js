@@ -69,13 +69,21 @@ const pixelArt = [
 
 
 // Variables de física para modo azul
-let blueGravity = 0.45; // antes 0.7, ahora más liviana
-let blueJumpPower = -11;
-let blueYVel = 0;
-let blueOnGround = false;
-// Variable para invertir gravedad y rotación
+let blueGravity = 0.55; // gravedad
+let blueYVel = 1;
+let blueOnGround = false;  
+
+// Variable para invertir gravedad y rotación 
 let blueGravityInverted = false;
 let heartRotation = 0;
+
+// Salto variable (modo azul)
+let blueJumpHeld = false;
+let blueJumpKeyDown = false; // tecla de salto físicamente presionada (para auto-salto)
+const blueJumpMinPower = -4.3;   // salto MÍNIMO (toque rápido de la tecla)
+const blueJumpMaxPower = -10;   // salto MÁXIMO (mantener pulsado) — configurable
+const blueJumpHoldPower = 0.47; // impulso extra por frame mientras se mantiene
+const blueFallSlowFactor = 0.8; // gravedad reducida al mantener la tecla mientras cae (0-1, 1 = caída normal)
 
 
 // Vida

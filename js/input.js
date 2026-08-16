@@ -16,6 +16,9 @@ document.addEventListener('mousemove', (e) => {
 document.addEventListener('keydown', (e) => {
     if (broken) return;
 
+    // Evitar que la barra espaciadora haga scroll o active botones
+    if (e.code === 'Space' || e.key === ' ') e.preventDefault();
+
     // Modo rojo
     if (e.key === '1') {
         heartColor     = '#ff0000';
@@ -27,6 +30,8 @@ document.addEventListener('keydown', (e) => {
         if (modeSound) { modeSound.currentTime = 0; modeSound.play(); }
         blueYVel     = 0;
         blueOnGround = false;
+        blueJumpHeld = false;
+        blueJumpKeyDown = false;
     }
 
     // Modo azul
@@ -40,13 +45,17 @@ document.addEventListener('keydown', (e) => {
         if (modeSound) { modeSound.currentTime = 0; modeSound.play(); }
         blueYVel     = 0;
         blueOnGround = false;
+        blueJumpHeld = false;
+        blueJumpKeyDown = false;
     }
 
-    // Saltar (modo azul)
-    if (heartColor === '#2018f9ff' && e.key === 'ArrowUp') {
+    // Saltar (modo azul) — barra espaciadora o flecha arriba
+    if (heartColor === '#2018f9ff' && (e.code === 'Space' || e.key === ' ' || e.key === 'ArrowUp')) {
+        blueJumpKeyDown = true;
         if (blueOnGround || isOnAnyPlatform()) {
-            blueYVel     = blueJumpPower;
+            blueYVel     = blueJumpMinPower;
             blueOnGround = false;
+            blueJumpHeld = true;
         }
     }
 
@@ -62,7 +71,7 @@ document.addEventListener('keydown', (e) => {
         if (greenBoxActive) closeGreenBoxAnimation();
     }
 
-    // Proyectiles normales (solo fuera del modo escudo)
+    // Proyectiles blancos (solo fuera del modo escudo)
     if (!lockedCenter && (e.key === 'a' || e.key === 'A')) {
         projectiles.push({ x: mousePos.x, y: mousePos.y, vx: 0, vy: 0, active: false, hit: false });
     }
@@ -162,4 +171,9 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('keyup', (e) => {
     if (!lockedCenter && (e.key in keys)) keys[e.key] = false;
+    // Soltar la tecla de salto corta el impulso (salto variable)
+    if (e.code === 'Space' || e.key === ' ' || e.key === 'ArrowUp') {
+        blueJumpHeld    = false;
+        blueJumpKeyDown = false;
+    }
 });

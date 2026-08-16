@@ -192,6 +192,42 @@ function isOnAnyPlatform() {
     return false;
 }
 
+// ─── Hueso pixelado ──────────────────────────────────────────────────────────
+// Cuadrícula del hueso (X = píxel relleno). Extremos anchos + cuerpo delgado.
+const BONE_GRID = [
+    "............",
+    "XXX......XXX",
+    ".XXXXXXXXXX.",
+    ".XXXXXXXXXX.",
+    "XXX......XXX",
+    "............",
+];
+const BONE_PIXEL = 3; // tamaño de cada celda en px
+
+function drawPixelBone(ctx, cx, cy, angle, color, glowColor) {
+    const cols = BONE_GRID[0].length;
+    const rows = BONE_GRID.length;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (BONE_GRID[r][c] === 'X') {
+                ctx.rect((c - cols / 2) * BONE_PIXEL, (r - rows / 2) * BONE_PIXEL, BONE_PIXEL, BONE_PIXEL);
+            }
+        }
+    }
+    ctx.fillStyle   = color;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur  = 12;
+    ctx.globalAlpha = 0.95;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur  = 0;
+    ctx.restore();
+}
+
 // ─── Proyectiles ─────────────────────────────────────────────────────────────
 function updateProjectiles() {
     pctx.clearRect(0, 0, projectileCanvas.width, projectileCanvas.height);
@@ -235,21 +271,13 @@ function updateProjectiles() {
             if (pp.x < -10 || pp.x > window.innerWidth + 10 ||
                 pp.y < -10 || pp.y > window.innerHeight + 10) continue;
         }
-        // Dibujar proyectil morado
-        pctx.beginPath();
-        pctx.arc(pp.x, pp.y, 8, 0, 2 * Math.PI);
-        pctx.fillStyle   = '#a020f0';
-        pctx.shadowColor = '#a020f0';
-        pctx.shadowBlur  = 12;
-        pctx.globalAlpha = 0.95;
-        pctx.fill();
-        pctx.globalAlpha = 1;
-        pctx.shadowBlur  = 0;
+        // Dibujar proyectil morado (hueso pixelado apuntando al jugador)
+        drawPixelBone(pctx, pp.x, pp.y, Math.atan2(y - pp.y, x - pp.x), '#a020f0', '#a020f0');
         newPurple.push(pp);
     }
     purpleProjectiles = newPurple;
 
-    // --- Proyectiles normales ---
+    // --- Proyectiles blancos ---
     let newProjectiles = [];
     for (let i = 0; i < projectiles.length; i++) {
         let p = projectiles[i];
@@ -264,6 +292,8 @@ function updateProjectiles() {
             p.x += p.vx;
             p.y += p.vy;
         } else if (p.active) {
+            // Movimiento rectilíneo: conserva la dirección fijada al disparar
+            // (hacia donde estaba el jugador en ese momento, sin perseguirlo)
             p.x += p.vx;
             p.y += p.vy;
         }
@@ -314,28 +344,11 @@ function updateProjectiles() {
 
         // Dibujar proyectil
         if (p.attackType) {
-            pctx.save();
-            pctx.translate(p.x, p.y);
-            pctx.rotate(Math.atan2(p.vy, p.vx));
-            pctx.beginPath();
-            pctx.moveTo(-12, -5);
-            pctx.lineTo(10, 0);
-            pctx.lineTo(-12, 5);
-            pctx.lineTo(-7, 0);
-            pctx.closePath();
-            pctx.fillStyle   = '#ffffff';
-            pctx.shadowColor = '#00eaff';
-            pctx.shadowBlur  = 8;
-            pctx.globalAlpha = 0.95;
-            pctx.fill();
-            pctx.globalAlpha = 1;
-            pctx.shadowBlur  = 0;
-            pctx.restore();
+            drawPixelBone(pctx, p.x, p.y, Math.atan2(y - p.y, x - p.x), '#ffffff', '#00eaff');
         } else {
-            pctx.beginPath();
-            pctx.arc(p.x, p.y, 6, 0, 2 * Math.PI);
-            pctx.fillStyle = '#cccccc';
-            pctx.fill();
+            // El hueso blanco apunta en la dirección de viaje (no persigue al jugador)
+            const boneAngle = p.active ? Math.atan2(p.vy, p.vx) : Math.atan2(y - p.y, x - p.x);
+            drawPixelBone(pctx, p.x, p.y, boneAngle, '#cccccc', '#cccccc');
         }
 
         if (
@@ -365,6 +378,8 @@ function resetGame() {
     shieldActive = false;
     lockedCenter = false;
     setLifeBarPosition(false);
+    blueJumpHeld = false;
+    blueJumpKeyDown = false;
 }
 
 // ─── Partículas de muerte ─────────────────────────────────────────────────────
@@ -467,9 +482,27 @@ function move() {
     } else if (!broken && !lockedCenter) {
         if (heartColor === '#2018f9ff') {
             // Modo azul: física de gravedad
+            // Auto-salto: si la tecla de salto está presionada y el corazón está en el suelo,
+            // salta de nuevo (no depende del auto-repeat del navegador, funciona con otras teclas)
+            if (blueJumpKeyDown && (blueOnGround || isOnAnyPlatform())) {
+                blueYVel     = blueJumpMinPower;
+                blueOnGround = false;
+                blueJumpHeld = true;
+            }
             if (keys.ArrowLeft)  x = Math.max(x - speed, heartWidth  / 2);
             if (keys.ArrowRight) x = Math.min(x + speed, window.innerWidth  - heartWidth  / 2);
             blueYVel += blueGravityInverted ? -blueGravity : blueGravity;
+            // Salto variable: mientras se mantiene la tecla Y el corazón sube
+            // (contra la gravedad), empuja hacia arriba hasta el salto máximo
+            if (blueJumpHeld && blueYVel < 0 && blueYVel > blueJumpMaxPower) {
+                blueYVel = Math.max(blueYVel - blueJumpHoldPower, blueJumpMaxPower);
+            }
+            // Caída lenta: al mantener la tecla mientras el corazón cae
+            // (a favor de la gravedad), la gravedad se multiplica por blueFallSlowFactor
+            const blueFalling = blueGravityInverted ? blueYVel < 0 : blueYVel > 0;
+            if (blueJumpHeld && blueFalling) {
+                blueYVel -= (blueGravityInverted ? -blueGravity : blueGravity) * (1 - blueFallSlowFactor);
+            }
             let nextY  = y + blueYVel;
             let landed = false;
             for (let pl of platforms) {

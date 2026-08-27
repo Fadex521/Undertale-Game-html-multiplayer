@@ -19,6 +19,8 @@ document.addEventListener('keydown', (e) => {
     // Evitar que la barra espaciadora haga scroll o active botones
     if (e.code === 'Space' || e.key === ' ') e.preventDefault();
 
+    const code = e.code;
+
     // Modo rojo
     if (e.key === '1') {
         heartColor     = '#ff0000';
@@ -32,6 +34,7 @@ document.addEventListener('keydown', (e) => {
         blueOnGround = false;
         blueJumpHeld = false;
         blueJumpKeyDown = false;
+        if (window.attackManager) window.attackManager.clear();
     }
 
     // Modo azul
@@ -47,6 +50,7 @@ document.addEventListener('keydown', (e) => {
         blueOnGround = false;
         blueJumpHeld = false;
         blueJumpKeyDown = false;
+        if (window.attackManager) window.attackManager.clear();
     }
 
     // Saltar (modo azul) — barra espaciadora o flecha arriba
@@ -71,32 +75,48 @@ document.addEventListener('keydown', (e) => {
         if (greenBoxActive) closeGreenBoxAnimation();
     }
 
-    // Proyectiles blancos (solo fuera del modo escudo)
-    if (!lockedCenter && (e.key === 'a' || e.key === 'A')) {
-        projectiles.push({ x: mousePos.x, y: mousePos.y, vx: 0, vy: 0, active: false, hit: false });
-    }
-    if (!lockedCenter && (e.key === 's' || e.key === 'S')) {
-        projectiles.forEach(p => {
-            if (!p.active) {
-                const dx = x - p.x, dy = y - p.y;
-                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-                p.vx = dx / dist * 7;
-                p.vy = dy / dist * 7;
-                p.active = true;
+    // Sistema de ataques unificado
+    if (window.AttackKeyBindings && window.attackManager) {
+        const bindings = window.AttackKeyBindings[code];
+        if (bindings) {
+            console.log(`[Input] Tecla presionada: ${code} (${e.key}), bindings encontrados: ${bindings.length}`);
+            for (const binding of bindings) {
+                const validatorResult = binding.validator();
+                console.log(`[Input] Binding ${binding.type}: validator=${validatorResult}`);
+                if (validatorResult) {
+                    if (binding.custom) {
+                        console.log(`[Input] Ejecutando custom para ${binding.type}`);
+                        binding.custom(e);
+                    } else if (binding.action === 'fire') {
+                        console.log(`[Input] Ejecutando fire para ${binding.type}`);
+                        window.attackManager.fireAll(binding.type, (a) => {
+                            const dx = x - a.x, dy = y - a.y;
+                            const dist = Math.hypot(dx, dy) || 1;
+                            a.vx = dx / dist * 7;
+                            a.vy = dy / dist * 7;
+                            a.angle = Math.atan2(dy, dx); // Guardar ángulo de lanzamiento (última pos jugador)
+                        });
+                    } else if (binding.action === 'fireAll') {
+                        console.log(`[Input] Ejecutando fireAll para ${binding.type}`);
+                        const inactive = window.attackManager.getInactive(binding.type);
+                        for (const a of inactive) {
+                            a.active = true;
+                            a.follow = true;
+                            a.timer = a.followDuration || 60;
+                        }
+                    } else if (binding.params) {
+                        console.log(`[Input] Ejecutando spawn para ${binding.type}`);
+                        window.attackManager.spawn(binding.type, binding.params());
+                    }
+                    break; // Solo ejecutar el primer binding que coincida
+                }
             }
-        });
-    }
-
-    // Ataques al jugador en modo escudo
-    if (lockedCenter && shieldActive) {
-        if (e.key === 'a' || e.key === 'A')
-            projectiles.push({ x: 0,                   y: y,                    vx: 0, vy: 0, active: true, hit: false, attackType: 'left'  });
-        if (e.key === 'w' || e.key === 'W')
-            projectiles.push({ x: x,                   y: 0,                    vx: 0, vy: 0, active: true, hit: false, attackType: 'up'    });
-        if (e.key === 's' || e.key === 'S')
-            projectiles.push({ x: x,                   y: window.innerHeight,   vx: 0, vy: 0, active: true, hit: false, attackType: 'down'  });
-        if (e.key === 'd' || e.key === 'D')
-            projectiles.push({ x: window.innerWidth,   y: y,                    vx: 0, vy: 0, active: true, hit: false, attackType: 'right' });
+        } else {
+            console.log(`[Input] Tecla ${code} no tiene bindings`);
+        }
+    } else {
+        if (!window.AttackKeyBindings) console.warn('[Input] AttackKeyBindings no definido');
+        if (!window.attackManager) console.warn('[Input] attackManager no definido');
     }
 
     // Movimiento con flechas (modo normal)
@@ -136,22 +156,6 @@ document.addEventListener('keydown', (e) => {
             boxMode = "green";
         } else if (boxMode === "green") {
             closeGreenBoxAnimation();
-        }
-    }
-
-    // Proyectil morado (con cooldown)
-    if ((e.key === 'z' || e.key === 'Z') && !lockedCenter) {
-        const now = Date.now();
-        if (now - purpleLastSpawn >= purpleSpawnCooldown) {
-            purpleProjectiles.push({ x: mousePos.x, y: mousePos.y, vx: 0, vy: 0, active: false, follow: false, timer: 0 });
-            purpleLastSpawn = now;
-        }
-    }
-
-    // Disparar todos los morados
-    if (e.key === 'x' || e.key === 'X') {
-        for (let p of purpleProjectiles) {
-            if (!p.active) { p.active = true; p.follow = true; p.timer = purpleFollowDuration; }
         }
     }
 

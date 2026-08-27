@@ -1,4 +1,4 @@
-// js/sprite_anim.js
+// js/logica_blasters.js
 // --- Animación del Gaster Blaster ---
 // Spritesheet: assets/gasterblaster.png  |  24 frames en fila, 66x70 px cada uno
 
@@ -10,6 +10,10 @@ const spriteFrameCount  = 24;
 const spriteFrameWidth  = 66;
 const spriteFrameHeight = 70;
 let spriteScale     = 2.0;
+
+// Hacer disponibles globalmente para attacks.js
+window.spriteFrameHeight = spriteFrameHeight;
+window.spriteScale = spriteScale;
 const spriteFrameTime   = 40;   // ms por frame
 const laserDuration     = 700;  // ms
 const spriteRotSpeed    = 0.13;
@@ -39,7 +43,8 @@ function makeBlaster(bx, by, targetX, targetY) {
         speed: spriteSpeed, speedGrowth: spriteSpeedGrowth,
         arriveVX: adx / amag * 18, arriveVY: ady / amag * 18,
         currentSpeed: spriteSpeed, lastFrameTime: 0,
-        laserActive: false, laserStartTime: 0, laserHit: false
+        laserActive: false, laserStartTime: 0, laserHit: false,
+        damage: 4  // daño del láser (configurable desde AttackTypes)
     };
 }
 
@@ -57,7 +62,9 @@ function spawnBlasterToward(targetX, targetY) {
     const tMin    = Math.min(...tCands);
     const bx = player.x + dirX * tMin;
     const by = player.y + dirY * tMin;
-    blasters.push(makeBlaster(bx, by, targetX, targetY));
+    const b = makeBlaster(bx, by, targetX, targetY);
+    blasters.push(b);
+    return b;
 }
 
 function fireBlaster(b) {
@@ -74,45 +81,9 @@ function fireBlaster(b) {
 }
 
 window.addEventListener('keydown', (e) => {
-    // T — disparar todos los blasters
-    if (e.key === 't' || e.key === 'T') {
-        let audio = document.getElementById('sprite-anim-sound');
-        if (audio) { audio.currentTime = 0; audio.play(); }
-        for (let b of blasters)
-            if (b.active && !b.animating && !b.arriving && !b.laserActive) fireBlaster(b);
-    }
-
-    // R — invocar en posición aleatoria
-    if (e.key === 'r' || e.key === 'R') {
-        let audio = document.getElementById('sprite-sound');
-        if (audio) { audio.currentTime = 0; audio.play(); }
-        const tx = Math.random() * window.innerWidth;
-        const ty = Math.random() * window.innerHeight;
-        spawnBlasterToward(tx, ty);
-    }
-
-    // F — invocar hacia el cursor
-    if (e.key === 'f' || e.key === 'F') {
-        let audio = document.getElementById('sprite-sound');
-        if (audio) { audio.currentTime = 0; audio.play(); }
-        const mouse = (typeof mousePos !== 'undefined')
-            ? mousePos
-            : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-        spawnBlasterToward(mouse.x, mouse.y);
-    }
-
-    // G — disparar el último blaster quieto
-    if (e.key === 'g' || e.key === 'G') {
-        for (let i = blasters.length - 1; i >= 0; i--) {
-            const b = blasters[i];
-            if (b.active && !b.animating && !b.arriving && !b.laserActive) {
-                let audio = document.getElementById('sprite-anim-sound');
-                if (audio) { audio.currentTime = 0; audio.play(); }
-                fireBlaster(b);
-                break;
-            }
-        }
-    }
+    // T, G, F, R — ahora manejados por attacks.js
+    // Este listener se mantiene vacío para compatibilidad (no hace nada)
+    // Si attacks.js no cargara, las teclas no funcionarían
 });
 
 function drawSprite(ctx) {
@@ -153,16 +124,12 @@ function drawSprite(ctx) {
                     if (Math.abs(rx) < laserWidth / 2 + 10 && ry > 0 && ry < laserLength) {
                         if (!b.laserHit) {
                             b.laserHit = true;
-                            life = Math.max(0, life - 4);
+                            life = Math.max(0, life - (b.damage || 4));
                             updateLifeBar();
                             const hs = document.getElementById('hit-sound');
                             if (hs) { hs.currentTime = 0; hs.play(); }
                             if (life === 0) {
-                                broken             = true;
-                                heartDeathAnimating = true;
-                                heartDeathFrame    = 0;
-                                heartLastFrameTime = performance.now();
-                                setTimeout(resetGame, 4000);
+                                if (typeof triggerDeath === 'function') triggerDeath();
                             }
                         }
                     }

@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Corazón Undertale</title>
+    <!-- ============================================================
+         Proyecto Undertale - DeltaVS
+         Game loop y lógica: js/mechanics.js (bucle principal)
+         Entrada de teclado:    js/input.js
+         Animaciones:           js/sprite_anim.js
+         Documentación:         js/comentarios.js
+         ============================================================ -->
     <style>
         body {
             background: #111;
@@ -194,8 +201,9 @@
     <audio id="shield-sound"     src="./sounds/undertale-ding.mp3"  preload="auto" style="display:none"></audio>
     <audio id="mode-sound"       src="./sounds/cambioModo.mp3"      preload="auto" style="display:none"></audio>
     <audio id="box-shrink-sound" src="./sounds/contraerbox.mp3"     preload="auto" style="display:none"></audio>
-    <audio id="sprite-sound"     src="./sounds/blaster inicial.mp3" preload="auto" style="display:none"></audio>
-    <audio id="sprite-anim-sound" src="./sounds/blaster final.mp3"  preload="auto" style="display:none"></audio>
+    <audio id="sonido-cargarblaster" src="./sounds/blaster inicial.mp3" preload="auto" style="display:none"></audio>
+    <audio id="sonido-lanzarblaster" src="./sounds/blaster final.mp3"  preload="auto" style="display:none"></audio>
+    <audio id="aparecer-flecha" src="./sounds/undertale-spear-appearing.mp3"  preload="auto" style="display:none"></audio>
 
-    <script src="js/globals.js"></script>    <script src="js/entities.js"></script>   <script src="js/mechanics.js"></script>  <script src="js/input.js"></script>      <script src="js/sprite_anim.js"></script><script src="js/main.js"></script>       </body>
+    <script src="js/globals.js"></script>    <script src="js/entities.js"></script>   <script src="js/mechanics.js"></script>  <script src="js/logica_blasters.js"></script>  <script src="js/attacks.js"></script>      <script src="js/input.js"></script>      <script src="js/main.js"></script>       </body>
 </html>

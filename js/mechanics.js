@@ -228,136 +228,36 @@ function drawPixelBone(ctx, cx, cy, angle, color, glowColor) {
     ctx.restore();
 }
 
-// ─── Proyectiles ─────────────────────────────────────────────────────────────
-function updateProjectiles() {
+// ─── Proyectiles (usando AttackManager) ──────────────────────────────────────
+function updateProjectiles(dt = 1) {
     pctx.clearRect(0, 0, projectileCanvas.width, projectileCanvas.height);
 
-    // --- Proyectiles morados ---
-    let newPurple = [];
-    for (let pp of purpleProjectiles) {
-        if (pp.active) {
-            if (pp.follow && pp.timer > 0) {
-                let dx   = x - pp.x;
-                let dy   = y - pp.y;
-                let dist = Math.sqrt(dx * dx + dy * dy) || 1;   // FIX: era dxdx / dydy
-                let spd  = 4.6;
-                pp.vx = dx / dist * spd;
-                pp.vy = dy / dist * spd;
-                pp.x += pp.vx;
-                pp.y += pp.vy;
-                pp.timer--;
-                if (pp.timer <= 0) pp.follow = false;
-            } else {
-                pp.x += pp.vx;
-                pp.y += pp.vy;
-            }
-            if (!broken && checkCollision(pp.x, pp.y)) {
-                if (hitSound) { hitSound.currentTime = 0; hitSound.play(); }
-                if (life > 0) {
-                    life--;
-                    updateLifeBar();
-                    if (life === 0) {
-                        
-                        broken = true;
-                        heartDeathAnimating = true;
-                        heartDeathFrame     = 0;
-
-                        heartLastFrameTime  = performance.now();
-                        setTimeout(resetGame, 4000);
-                    }
-                }
-                continue;
-            }
-            if (pp.x < -10 || pp.x > window.innerWidth + 10 ||
-                pp.y < -10 || pp.y > window.innerHeight + 10) continue;
-        }
-        // Dibujar proyectil morado (hueso pixelado apuntando al jugador)
-        drawPixelBone(pctx, pp.x, pp.y, Math.atan2(y - pp.y, x - pp.x), '#a020f0', '#a020f0');
-        newPurple.push(pp);
+    // Actualizar y renderizar todos los ataques vía AttackManager
+    if (window.attackManager) {
+        window.attackManager.update(dt);
+        window.attackManager.render(pctx);
     }
-    purpleProjectiles = newPurple;
 
-    // --- Proyectiles blancos ---
-    let newProjectiles = [];
-    for (let i = 0; i < projectiles.length; i++) {
-        let p = projectiles[i];
-        if (p.active && p.attackType) {
-            let dx   = x - p.x;
-            let dy   = y - p.y;
-            let dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            if (p.initDist === undefined) p.initDist = dist;
-            let spd = p.initDist / 60;
-            p.vx = dx / dist * spd;
-            p.vy = dy / dist * spd;
-            p.x += p.vx;
-            p.y += p.vy;
-        } else if (p.active) {
-            // Movimiento rectilíneo: conserva la dirección fijada al disparar
-            // (hacia donde estaba el jugador en ese momento, sin perseguirlo)
-            p.x += p.vx;
-            p.y += p.vy;
-        }
+    // Mantener compatibilidad con blasters (sistema separado por ahora)
+    drawShield();
+}
 
-        // Colisión con el escudo
-        if (lockedCenter && shieldActive && shieldDir && p.attackType) {
-            const offset = shieldRadius + 18;
-            let shieldAngle = 0;
-            if (shieldDir === 'up')    shieldAngle = -Math.PI / 2;
-            if (shieldDir === 'down')  shieldAngle =  Math.PI / 2;
-            if (shieldDir === 'left')  shieldAngle =  Math.PI;
-            if (shieldDir === 'right') shieldAngle =  0;
-            const fx = x + Math.cos(shieldAngle) * offset;
-            const fy = y + Math.sin(shieldAngle) * offset;
-            if (Math.sqrt((p.x - fx) ** 2 + (p.y - fy) ** 2) < 24) {
-                if (shieldSound) { shieldSound.currentTime = 0; shieldSound.play(); }
-                continue;
-            }
-        }
-
-        // Colisión con el corazón
-        if (!p.hit && !broken && checkCollision(p.x, p.y)) {
-            p.hit = true;
-            if (hitSound) { hitSound.currentTime = 0; hitSound.play(); }
-            if (p.attackType) {
-                life = life > 1 ? Math.max(0, life - 2) : 0;
-            } else if (life > 0) {
-                life--;
-            }
-            updateLifeBar();
-            if (life === 0) {
-                if (deathSound) {
-        deathSound.currentTime = 0; // Reinicia el audio por si acaso
+// ─── Muerte ──────────────────────────────────────────────────────────────────
+function triggerDeath() {
+    if (deathSound) {
+        deathSound.currentTime = 0;
         deathSound.play().catch(e => console.log("Error al reproducir audio:", e));
     }
-                broken             = true;
-                heartDeathAnimating = true;
-                heartDeathFrame    = 0;
-                heartLastFrameTime = performance.now();
-                shieldActive       = false;
-                lockedCenter       = false;
-                projectiles        = [];
-                setTimeout(resetGame, 4000);
-                if (greenBoxActive) closeGreenBoxAnimation();
-            }
-            continue;
-        }
-
-        // Dibujar proyectil
-        if (p.attackType) {
-            drawPixelBone(pctx, p.x, p.y, Math.atan2(y - p.y, x - p.x), '#ffffff', '#00eaff');
-        } else {
-            // El hueso blanco apunta en la dirección de viaje (no persigue al jugador)
-            const boneAngle = p.active ? Math.atan2(p.vy, p.vx) : Math.atan2(y - p.y, x - p.x);
-            drawPixelBone(pctx, p.x, p.y, boneAngle, '#cccccc', '#cccccc');
-        }
-
-        if (
-            !(p.x < -10 || p.x > window.innerWidth  + 10 ||
-              p.y < -10 || p.y > window.innerHeight + 10) && !p.hit
-        ) newProjectiles.push(p);
-    }
-    projectiles = newProjectiles;
-    drawShield();
+    broken             = true;
+    heartDeathAnimating = true;
+    heartDeathFrame    = 0;
+    heartLastFrameTime = performance.now();
+    shieldActive       = false;
+    lockedCenter       = false;
+    projectiles        = [];
+    if (window.attackManager) window.attackManager.clear();
+    setTimeout(resetGame, 4000);
+    if (greenBoxActive) closeGreenBoxAnimation();
 }
 
 // ─── Reset del juego ─────────────────────────────────────────────────────────
@@ -370,7 +270,7 @@ function resetGame() {
     deathParticles            = [];
     deathAnimationFinishedTime = 0;
     projectiles               = [];
-    purpleProjectiles         = [];
+    if (window.attackManager) window.attackManager.clear();
     updateLifeBar();
     x            = window.innerWidth  / 2;
     y            = window.innerHeight / 2;
@@ -598,6 +498,159 @@ function move() {
     }
 
     updateProjectiles();
+    updateDeathParticles();
+    drawDeathParticles();
+    updateGreenBox();
+    drawPlatforms();
+    if (greenBoxActive) clampToGreenBox();
+    drawGreenBox();
+
+    if (typeof testSpriteDraw === 'function') testSpriteDraw(pctx);
+
+    requestAnimationFrame(move);  // SIEMPRE al final, nunca antes de un return
+}
+
+// Calcular delta time para el AttackManager
+let lastFrameTime = performance.now();
+function move() {
+    const now = performance.now();
+    const dt = (now - lastFrameTime) / 16.67; // Normalizado a 60fps
+    lastFrameTime = now;
+
+    // Movimiento al centro (modo escudo)
+    if (movingToCenter) {
+        x += (centerTargetX - x) * centerLerpSpeed;
+        y += (centerTargetY - y) * centerLerpSpeed;
+        if (Math.abs(x - centerTargetX) < 1 && Math.abs(y - centerTargetY) < 1) {
+            x = centerTargetX;
+            y = centerTargetY;
+            movingToCenter = false;
+            lockedCenter   = true;
+            heartColor     = '#027e02ff';
+            keys['ArrowLeft'] = keys['ArrowRight'] = keys['ArrowUp'] = keys['ArrowDown'] = false;
+            shieldActive = true;
+            shieldDir    = null;
+            setShieldTarget('up');
+        }
+    } else if (!broken && !lockedCenter) {
+        if (heartColor === '#2018f9ff') {
+            // Modo azul: física de gravedad
+            // Auto-salto: si la tecla de salto está presionada y el corazón está en el suelo,
+            // salta de nuevo (no depende del auto-repeat del navegador, funciona con otras teclas)
+            if (blueJumpKeyDown && (blueOnGround || isOnAnyPlatform())) {
+                blueYVel     = blueJumpMinPower;
+                blueOnGround = false;
+                blueJumpHeld = true;
+            }
+            if (keys.ArrowLeft)  x = Math.max(x - speed, heartWidth  / 2);
+            if (keys.ArrowRight) x = Math.min(x + speed, window.innerWidth  - heartWidth  / 2);
+            blueYVel += blueGravityInverted ? -blueGravity : blueGravity;
+            // Salto variable: mientras se mantiene la tecla Y el corazón sube
+            // (contra la gravedad), empuja hacia arriba hasta el salto máximo
+            if (blueJumpHeld && blueYVel < 0 && blueYVel > blueJumpMaxPower) {
+                blueYVel = Math.max(blueYVel - blueJumpHoldPower, blueJumpMaxPower);
+            }
+            // Caída lenta: al mantener la tecla mientras el corazón cae
+            // (a favor de la gravedad), la gravedad se multiplica por blueFallSlowFactor
+            const blueFalling = blueGravityInverted ? blueYVel < 0 : blueYVel > 0;
+            if (blueJumpHeld && blueFalling) {
+                blueYVel -= (blueGravityInverted ? -blueGravity : blueGravity) * (1 - blueFallSlowFactor);
+            }
+            let nextY  = y + blueYVel;
+            let landed = false;
+            for (let pl of platforms) {
+                if (
+                    y + heartHeight / 2 <= pl.y &&
+                    nextY + heartHeight / 2 >= pl.y &&
+                    x + heartWidth  / 2 > pl.x &&
+                    x - heartWidth  / 2 < pl.x + pl.w
+                ) {
+                    nextY  = pl.y - heartHeight / 2;
+                    blueYVel = 0;
+                    blueOnGround = true;
+                    landed = true;
+                    break;
+                }
+            }
+            // Colisión con la barra de vida como plataforma
+            const lbr    = lifeBar.getBoundingClientRect();
+            if (
+                y + heartHeight / 2 <= lbr.top &&
+                nextY + heartHeight / 2 >= lbr.top &&
+                x + heartWidth  / 2 > lbr.left &&
+                x - heartWidth  / 2 < lbr.right
+            ) {
+                nextY    = lbr.top - heartHeight / 2;
+                blueYVel = 0;
+                blueOnGround = true;
+                landed   = true;
+            }
+            if (blueGravityInverted && nextY <= heartHeight / 2) {
+                nextY = heartHeight / 2;
+                blueYVel = 0;
+                blueOnGround = true;
+                landed = true;
+            }
+            if (!blueGravityInverted && nextY >= window.innerHeight - heartHeight / 2) {
+                nextY = window.innerHeight - heartHeight / 2;
+                blueYVel = 0;
+                blueOnGround = true;
+                landed = true;
+            }
+            if (!landed) blueOnGround = false;
+            y = nextY;
+        } else {
+            // Modo normal
+            if (keys.ArrowLeft)  x = Math.max(x - speed, heartWidth  / 2);
+            if (keys.ArrowRight) x = Math.min(x + speed, window.innerWidth  - heartWidth  / 2);
+            if (keys.ArrowUp)    y = Math.max(y - speed, heartHeight / 2);
+            if (keys.ArrowDown)  y = Math.min(y + speed, window.innerHeight - heartHeight / 2);
+        }
+    }
+
+    if (broken) {
+        shieldActive = false;
+        lockedCenter = false;
+        if (window.attackManager) window.attackManager.clear();
+    }
+
+    // ── Animación de muerte (spritesheet) ────────────────────────────────────
+    if (heartDeathAnimating) {
+        const now = performance.now();
+        if (now - heartLastFrameTime >= heartFrameDuration) {
+            heartLastFrameTime = now;
+            if (heartDeathFrame < HEART_FRAME_COUNT - 1) {
+                heartDeathFrame++;
+            } else {
+                heartDeathAnimating       = false;
+                deathAnimationFinishedTime = performance.now();
+            }
+        }
+    }
+
+    // ── Spawn de partículas cuando termina la animación de muerte ─────────────
+    if (
+        broken &&
+        !heartDeathAnimating &&
+        heartVisible &&
+        performance.now() - deathAnimationFinishedTime > 500
+    ) {
+        heartVisible = false;
+        spawnDeathParticles();
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    updateHeart();
+    ctx.imageSmoothingEnabled = false;  // Para el lienzo del corazón
+    pctx.imageSmoothingEnabled = false; // Para el lienzo de los Blasters/Proyectiles
+
+    if (heartVisible) {
+        drawHeart(ctx);
+    } else {
+        ctx.clearRect(0, 0, heartWidth, heartHeight);
+    }
+
+    updateProjectiles(dt);
     updateDeathParticles();
     drawDeathParticles();
     updateGreenBox();

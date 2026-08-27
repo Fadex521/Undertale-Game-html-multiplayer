@@ -91,7 +91,7 @@ let life = 20;
 const maxLife = 20;
 
 
-// Proyectiles
+// Proyectiles (legacy - mantenido para compatibilidad con blasters)
 let projectiles = [];
 let mousePos = { x: 0, y: 0 };
 
@@ -127,10 +127,11 @@ const centerLerpSpeed = 0.18; // velocidad de animación
 
 
 // --- Proyectiles morados (múltiples) ---
-let purpleProjectiles = [];
-const purpleFollowDuration = 60; // frames (1 segundo a 60fps)
-let purpleLastSpawn = 0;
-const purpleSpawnCooldown = 1000; // milisegundos
+// Ahora gestionados por AttackManager (js/attacks.js)
+// let purpleProjectiles = [];
+// const purpleFollowDuration = 60; // frames (1 segundo a 60fps)
+// let purpleLastSpawn = 0;
+// const purpleSpawnCooldown = 1000; // milisegundos
 
 
 // Audio

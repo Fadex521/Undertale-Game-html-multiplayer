@@ -11,6 +11,13 @@ window.addEventListener('resize', () => {
 document.addEventListener('mousemove', (e) => {
     mousePos.x = e.clientX;
     mousePos.y = e.clientY;
+    
+    // Mover barra de stamina al mouse
+    const staminaContainer = document.getElementById('stamina-bar-container');
+    if (staminaContainer) {
+        staminaContainer.style.left = e.clientX + 'px';
+        staminaContainer.style.top = e.clientY + 'px';
+    }
 });
 
 document.addEventListener('keydown', (e) => {
@@ -53,15 +60,7 @@ document.addEventListener('keydown', (e) => {
         if (window.attackManager) window.attackManager.clear();
     }
 
-    // Saltar (modo azul) — barra espaciadora o flecha arriba
-    if (heartColor === '#2018f9ff' && (e.code === 'Space' || e.key === ' ' || e.key === 'ArrowUp')) {
-        blueJumpKeyDown = true;
-        if (blueOnGround || isOnAnyPlatform()) {
-            blueYVel     = blueJumpMinPower;
-            blueOnGround = false;
-            blueJumpHeld = true;
-        }
-    }
+    
 
     // Modo escudo
     if (e.key === '2') {
@@ -74,6 +73,18 @@ document.addEventListener('keydown', (e) => {
         setLifeBarPosition(true);
         if (greenBoxActive) closeGreenBoxAnimation();
     }
+
+    // Saltar (modo azul) — solo flecha arriba
+    if (heartColor === '#2018f9ff' && e.key === 'ArrowUp') {
+        blueJumpKeyDown = true;
+        if (blueOnGround || isOnAnyPlatform()) {
+            blueYVel     = blueJumpMinPower;
+            blueOnGround = false;
+            blueJumpHeld = true;
+        }
+    }
+
+    // Modo escudo
 
     // Sistema de ataques unificado
     if (window.AttackKeyBindings && window.attackManager) {
@@ -165,18 +176,12 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'v' || e.key === 'V')
         platforms = [];
 
-    // Invertir gravedad (modo azul)
-    if ((e.key === 'i' || e.key === 'I') && heartColor === '#2018f9ff') {
-        blueGravityInverted = !blueGravityInverted;
-        y        = blueGravityInverted ? heartHeight / 2 : Math.min(y, window.innerHeight - heartHeight / 2);
-        blueYVel = 0;
-    }
-});
+    });
 
 document.addEventListener('keyup', (e) => {
     if (!lockedCenter && (e.key in keys)) keys[e.key] = false;
     // Soltar la tecla de salto corta el impulso (salto variable)
-    if (e.code === 'Space' || e.key === ' ' || e.key === 'ArrowUp') {
+    if (e.key === 'ArrowUp') {
         blueJumpHeld    = false;
         blueJumpKeyDown = false;
     }

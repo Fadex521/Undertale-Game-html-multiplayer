@@ -17,6 +17,8 @@ const AttackTypes = {
         followDuration: 0,
         spawnSound: null,
         hitSound: 'hit-sound',
+        invokeCost: 7,   // coste de invocar (colocar con A)
+        fireCost: 2,    // coste de lanzar (disparar con S)
         draw: (ctx, p) => {
             const angle = p.active 
                 ? (p.angle ?? Math.atan2(p.vy, p.vx))
@@ -40,6 +42,8 @@ const AttackTypes = {
         followDuration: 60,
         spawnSound: null,
         hitSound: 'hit-sound',
+        invokeCost: 0,   // coste de invocar (se spawnea automáticamente en modo escudo)
+        fireCost: 15,    // coste de lanzar (WASD en modo escudo)
         draw: (ctx, p) => {
             const angle = p.follow && p.timer > 0
                 ? Math.atan2(y - p.y, x - p.x)
@@ -71,7 +75,9 @@ PURPLE: {
         followDuration: 60,
         spawnSound: null,
         hitSound: 'hit-sound',
-        cooldown: 1000,
+        cooldown: 0,
+        invokeCost: 5,  // coste de invocar (colocar con Z)
+        fireCost: 20,    // coste de lanzar (disparar con X)
         draw: (ctx, p) => {
             // Siguiendo (homing): mira al jugador actual
             // No siguiendo: mira dirección de viaje
@@ -106,6 +112,8 @@ PURPLE: {
         hitboxOffset: { x: 15, y: 0 },  // Desplazamiento hitbox desde la punta de la flecha (px)
         spawnSound: 'none',
         hitSound: 'hit-sound',
+        invokeCost: 0,   // coste de invocar (se spawnea y lanza a la vez con WASD)
+        fireCost: 8,     // coste de lanzar (WASD en modo escudo)
         draw: (ctx, p) => {
             const angle = p.follow && p.timer > 0
                 ? Math.atan2(y - p.y, x - p.x)
@@ -156,18 +164,48 @@ PURPLE: {
         }
     },
 
+    // Spawn de Gaster Blaster (invocar blaster con F/R)
+    BLASTER_SPAWN: {
+        name: 'blaster_spawn',
+        color: '#fcfcfc',
+        glowColor: '#faf8f8',
+        speed: 0,
+        damage: 0,
+        homing: false,
+        followDuration: 0,
+        spawnSound: 'sonido-cargarblaster',
+        hitSound: 'hit-sound',
+        invokeCost: 20,   // coste de invocar (spawn blaster con F/R)
+        fireCost: 0,
+        draw: (ctx, p) => {
+            // No dibuja nada, solo spawnea el blaster
+        },
+        onUpdate: (p, dt) => {
+            // Spawnear el blaster real al crearse
+            if (!p._blasterSpawned) {
+                const b = spawnBlasterToward(p.targetX, p.targetY);
+                if (b) b.damage = (window.AttackTypes?.BLASTER_LASER?.damage) || 4;
+                p._blasterSpawned = true;
+            }
+            // Se elimina inmediatamente después de spawnear
+            p.active = false;
+        }
+    },
+
     // Láser de Gaster Blaster
     BLASTER_LASER: {
         name: 'blaster_laser',
         color: '#fcfcfc',
         glowColor: '#faf8f8',
         speed: 0,
-        damage: 1,
+        damage: 4,
         homing: false,
         followDuration: 0,
         duration: 700,
         spawnSound: 'sonido-lanzarblaster',
         hitSound: 'hit-sound',
+        invokeCost: 20,   // coste de invocar (spawn blaster con F/R)
+        fireCost: 3,    // coste de lanzar (disparar láser con G/T)
         draw: (ctx, p) => {
             const elapsed = performance.now() - p.laserStartTime;
             const alpha = 0.85 * (1 - elapsed / p.duration);
@@ -271,6 +309,18 @@ class AttackManager {
             this.cooldowns.set(typeName, Date.now());
         }
         
+        // Verificar coste de invocar (stamina)
+        const invokeCost = type.invokeCost || 0;
+        if (invokeCost > 0) {
+            if (stamina < invokeCost) {
+                console.log(`[AttackManager] Stamina insuficiente para invocar ${typeName} (${stamina}/${invokeCost})`);
+                return null;
+            }
+            stamina -= invokeCost;
+            staminaLastUsed = performance.now() / 1000;
+            console.log(`[AttackManager] Stamina consumida al invocar: ${invokeCost} (restante: ${stamina})`);
+        }
+        
         const attack = AttackFactory.create(typeName, params);
         this.attacks.push(attack);
         console.log(`[AttackManager] Spawned ${typeName}`, { id: attack.id, x: attack.x, y: attack.y, active: attack.active });
@@ -299,8 +349,22 @@ class AttackManager {
         this.attacks.forEach((a, i) => {
             console.log(`  [${i}] type=${a.type}, active=${a.active}, fired=${a.fired}, match=${a.type === typeName && !a.active && !a.fired}`);
         });
+        const type = AttackTypes[typeName];
+        const fireCost = type?.fireCost || 0;
+        
         for (const a of this.attacks) {
             if (a.type === typeName && !a.active && !a.fired) {
+                // Verificar coste de lanzar (stamina)
+                if (fireCost > 0) {
+                    if (stamina < fireCost) {
+                        console.log(`[AttackManager] Stamina insuficiente para lanzar ${typeName} (${stamina}/${fireCost})`);
+                        continue;
+                    }
+                    stamina -= fireCost;
+                    staminaLastUsed = performance.now() / 1000;
+                    console.log(`[AttackManager] Stamina consumida al lanzar: ${fireCost} (restante: ${stamina})`);
+                }
+                
                 activator(a);
                 a.active = true;
                 a.fired = true;
@@ -525,20 +589,28 @@ const AttackKeyBindings = {
         { type: 'PURPLE', validator: () => !lockedCenter, params: () => ({ x: mousePos.x, y: mousePos.y, vx: 0, vy: 0, active: false }) }
     ],
     'KeyX': [
-        { type: 'PURPLE', validator: () => true, action: 'fireAll' }
+        { type: 'PURPLE', validator: () => true, action: 'fire' }
     ],
     'KeyF': [
-        { type: 'BLASTER', validator: () => true, custom: () => { const a = document.getElementById('sonido-cargarblaster'); if (a) { a.currentTime = 0; a.play(); } const b = spawnBlasterToward(mousePos.x, mousePos.y); if (b) b.damage = (window.AttackTypes?.BLASTER_LASER?.damage) || 4; } }
+        { type: 'BLASTER_SPAWN', validator: () => true, params: () => ({ targetX: mousePos.x, targetY: mousePos.y }) }
     ],
     'KeyR': [
-        { type: 'BLASTER', validator: () => true, custom: () => { const a = document.getElementById('sonido-cargarblaster'); if (a) { a.currentTime = 0; a.play(); } const b = spawnBlasterToward(Math.random() * window.innerWidth, Math.random() * window.innerHeight); if (b) b.damage = (window.AttackTypes?.BLASTER_LASER?.damage) || 4; } }
+        { type: 'BLASTER_SPAWN', validator: () => true, params: () => ({ targetX: Math.random() * window.innerWidth, targetY: Math.random() * window.innerHeight }) }
     ],
     'KeyG': [
         { type: 'BLASTER', validator: () => true, custom: () => {
+            const type = window.AttackTypes?.BLASTER_LASER;
+            const fireCost = type?.fireCost || 30;
+            if (stamina < fireCost) {
+                console.log(`[AttackManager] Stamina insuficiente para disparar láser (${stamina}/${fireCost})`);
+                return;
+            }
             for (let i = blasters.length - 1; i >= 0; i--) {
                 const b = blasters[i];
                 if (b.active && !b.animating && !b.arriving && !b.laserActive) {
                     fireBlaster(b);
+                    stamina -= fireCost;
+                    staminaLastUsed = performance.now() / 1000;
                     const audio = document.getElementById('sonido-lanzarblaster');
                     if (audio) { audio.currentTime = 0; audio.play(); }
                     break;
@@ -548,10 +620,18 @@ const AttackKeyBindings = {
     ],
     'KeyT': [
         { type: 'BLASTER', validator: () => true, custom: () => {
+            const type = window.AttackTypes?.BLASTER_LASER;
+            const fireCost = type?.fireCost || 30;
             let fired = 0;
             for (const b of blasters) {
                 if (b.active && !b.animating && !b.arriving && !b.laserActive) {
+                    if (stamina < fireCost) {
+                        console.log(`[AttackManager] Stamina insuficiente para disparar láser (${stamina}/${fireCost})`);
+                        break;
+                    }
                     fireBlaster(b);
+                    stamina -= fireCost;
+                    staminaLastUsed = performance.now() / 1000;
                     fired++;
                 }
             }

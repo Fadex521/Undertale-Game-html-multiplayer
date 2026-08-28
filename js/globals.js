@@ -143,6 +143,15 @@ const deathSound = document.getElementById('death-sound');
 if (hitSound) {
     hitSound.volume = 0.3; 
 }
+
+// Stamina
+let stamina = 100;
+const maxStamina = 100;
+const staminaRegenRate = 25; // por segundo
+const staminaRegenDelay = 0.5; // segundos tras uso antes de regenerar
+const staminaEnabled = true; // si false, stamina es infinita (no gasta ni regenera)
+let staminaLastUsed = 0;
+
 // --- Zona verde/morada/blanca animada ---
 let greenBoxActive = false;
 let greenBoxAnimating = false;

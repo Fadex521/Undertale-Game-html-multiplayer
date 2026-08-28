@@ -7,6 +7,27 @@ function updateLifeBar() {
     lifeLabel.textContent = life + ' / ' + maxLife;
 }
 
+// ─── Barra de stamina ─────────────────────────────────────────────────────────
+function updateStaminaBar() {
+    const container = document.getElementById('stamina-bar-container');
+    const fill = document.getElementById('stamina-bar-fill');
+    const text = document.getElementById('stamina-text');
+    if (!container || !fill || !text) return;
+
+    const pct = stamina / maxStamina * 100;
+    fill.style.width = pct + '%';
+    text.textContent = Math.floor(stamina) + ' / ' + maxStamina;
+
+    // Mostrar solo si stamina < 99%, fade out en 100%
+    if (stamina >= maxStamina * 0.99) {
+        container.style.opacity = '0';
+        container.style.pointerEvents = 'none';
+    } else {
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+    }
+}
+
 // ─── Escudo: dirección objetivo ──────────────────────────────────────────────
 function setShieldTarget(dir) {
     if (dir === 'up') {
@@ -639,8 +660,19 @@ function move() {
         spawnDeathParticles();
     }
 
+    // ── Stamina regeneration ───────────────────────────────────────────────────
+    if (staminaEnabled) {
+        const nowSec = performance.now() / 1000;
+        if (stamina < maxStamina && nowSec - staminaLastUsed >= staminaRegenDelay) {
+            // dt es frames normalizados a 60fps, convertir a segundos
+            const dtSec = dt / 60;
+            stamina = Math.min(maxStamina, stamina + staminaRegenRate * dtSec);
+        }
+    }
+
     // ── Render ────────────────────────────────────────────────────────────────
     updateHeart();
+    updateStaminaBar();
     ctx.imageSmoothingEnabled = false;  // Para el lienzo del corazón
     pctx.imageSmoothingEnabled = false; // Para el lienzo de los Blasters/Proyectiles
 
